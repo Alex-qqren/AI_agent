@@ -1,8 +1,12 @@
 import os
 import argparse
+
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
+
+from prompts import *
+from call_function import available_functions
 
 def main():
     parser = argparse.ArgumentParser(description="Chatbot")
@@ -19,8 +23,10 @@ def main():
     client = genai.Client(api_key=api_key)
     response = client.models.generate_content(
         model='gemini-2.5-flash',
-        # contents=args.user_prompt
-        contents=messages
+        contents=messages,
+        config=types.GenerateContentConfig(
+            tools=[available_functions], system_instruction=system_prompt
+            ),
     )
 
     if args.verbose:
@@ -31,8 +37,13 @@ def main():
         y = response.usage_metadata.candidates_token_count
         print(f"Prompt tokens: {x}")
         print(f"Response tokens: {y}")
-    print("Response:")
-    print(response.text)
 
+    if response.function_calls:
+        for function_call in response.function_calls:
+            print(f"Calling function: {function_call.name}({function_call.args})")
+    else:
+        print("Response:")
+        print(response.text)
+    
 if __name__ == "__main__":
     main()

@@ -13,7 +13,9 @@ def run_python_file(working_directory, file_path, args=None):
       return f'Error: "{file_path}" is not a Python file'
 
     command = ["python", target_file_path]
-    command.extend(args or [])
+    
+    if args:
+      command.extend(args)
 
     sub_process_result = subprocess.run(
       command, 
@@ -28,11 +30,10 @@ def run_python_file(working_directory, file_path, args=None):
       output_string.append(f"Process exited with code {sub_process_result.returncode}")
     if not sub_process_result.stderr and not sub_process_result.stdout:
       output_string.append("No output produced")
-    else:
-      if sub_process_result.stdout:
-        output_string.append(f"STDOUT:\n{sub_process_result.stdout}")
-      if sub_process_result.stderr:
-        output_string.append(f"STDERR:\n{sub_process_result.stderr}")
+    if sub_process_result.stdout:
+      output_string.append(f"STDOUT:\n{sub_process_result.stdout}")
+    if sub_process_result.stderr:
+      output_string.append(f"STDERR:\n{sub_process_result.stderr}")
     return "\n".join(output_string)
 
   except Exception as e:
