@@ -7,6 +7,9 @@ from google.genai import types
 
 from prompts import *
 from call_function import available_functions, call_function
+from config import *
+
+import sys
 
 def main():
     parser = argparse.ArgumentParser(description="Chatbot")
@@ -24,7 +27,18 @@ def main():
     if args.verbose:
         print(f"User prompt: {args.user_prompt}\n")
 
-    generate_content(client, messages, args.verbose)
+    for _ in range(MAX_ITERATIONS):
+        try:
+            final_response = generate_content(client, messages, args.verbose)
+            if final_response:
+                print(f"Final response:\n{final_response}")
+                print(final_response)
+                return
+        except Exception as e:
+            print(f"Error in generate_content: {e}")
+
+    print(f"Exceeded maximum ({MAX_ITERATIONS}) numbers of iterations.")
+    sys.exit(1)
 
 def generate_content(client, messages, verbose):
     response = client.models.generate_content(
@@ -39,14 +53,17 @@ def generate_content(client, messages, verbose):
     if verbose:
         print(f"Prompt tokens: {response.usage_metadata.prompt_token_count}")
         print(f"Response tokens: {response.usage_metadata.candidates_token_count}")
+    if response.candidates:
+        for candidate in response.candidates:
+            if candidate.content:
+                messages.append(candidate.content)
     if not response.function_calls:
         print("Response:")
         print(response.text)
-        return 
+        return response.text
     
     function_results = []
     for function_call in response.function_calls:
-        # print(f"Calling function: {function_call.name}({function_call.args})")
         function_call_result = call_function(function_call, verbose)
         if len(function_call_result.parts) == 0:
             raise Exception("Function call result has no parts.")
@@ -54,9 +71,11 @@ def generate_content(client, messages, verbose):
             raise Exception("Function call result part has no function response.")
         if function_call_result.parts[0].function_response.response is None:
             raise Exception("Function call result part has no function response content.")
-        function_results.append(function_call_result.parts[0])
         if verbose:
             print(f"-> {function_call_result.parts[0].function_response.response}")
-        
+        function_results.append(function_call_result.parts[0])
+
+    messages.append(types.Content(role="user", parts=function_results))
+
 if __name__ == "__main__":
     main()
